@@ -170,8 +170,19 @@ export function renderAdmin(saved = false, hook = ''): string {
         <select id="llmProvider" name="llmProvider"><option value="openai" ${s.llmProvider === 'openai' ? 'selected' : ''}>OpenAI</option></select>
       </div>
       <div class="field">
-        <label for="openaiModel">Modelo</label>
-        <input id="openaiModel" type="text" name="openaiModel" value="${esc(s.openaiModel)}" placeholder="gpt-4o">
+        <div class="field-head"><label for="openaiModel">Modelo</label><span class="sub">escolha um ou digite outro</span></div>
+        <input id="openaiModel" type="text" name="openaiModel" value="${esc(s.openaiModel)}" list="modelOptions" placeholder="gpt-4o" autocomplete="off">
+        <datalist id="modelOptions">
+          <option value="gpt-5">gpt-5 — mais novo e capaz</option>
+          <option value="gpt-5-mini">gpt-5-mini — novo, rápido/barato</option>
+          <option value="gpt-4.1">gpt-4.1 — forte, suporta busca web</option>
+          <option value="gpt-4.1-mini">gpt-4.1-mini — barato, suporta busca web</option>
+          <option value="gpt-4o">gpt-4o — equilibrado (padrão)</option>
+          <option value="gpt-4o-mini">gpt-4o-mini — mais barato</option>
+          <option value="o4-mini">o4-mini — reasoning barato</option>
+          <option value="o3">o3 — reasoning forte</option>
+        </datalist>
+        <span class="sub">⚠️ modelos de reasoning (o3/o4-mini/gpt-5) podem não suportar busca web — se a análise falhar, use gpt-4.1/gpt-4o ou desligue a busca.</span>
       </div>
       ${secretRow('OpenAI API Key', 'openaiApiKey', Boolean(s.openaiApiKey))}
       <label class="switch"><input type="checkbox" name="openaiWebSearch" ${s.openaiWebSearch ? 'checked' : ''}><span class="track"></span> Busca web real (concorrentes / mercado atual)</label>
