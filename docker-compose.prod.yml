@@ -1,0 +1,36 @@
+# idea-analyzer · production compose (SHARED infra version).
+#
+# Single tiny Express service. Joins `proxy_net` so the shared nginx
+# reverse-proxy (ideias.berrysystem.com.br) reaches it by name. No DB.
+#
+# Usage (/srv/projects/idea-analyzer):
+#   cp .env.production.example .env.production   # fill secrets
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --no-build
+
+services:
+  app:
+    image: idea-analyzer:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ideias-app
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      PORT: 4500
+    networks:
+      - proxy_net
+    expose:
+      - "4500"
+    healthcheck:
+      # 127.0.0.1 (not localhost): localhost resolves to ::1 first, app binds IPv4 only.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4500/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+networks:
+  proxy_net:
+    name: proxy_net
+    external: true
