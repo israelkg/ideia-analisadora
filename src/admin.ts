@@ -299,6 +299,10 @@ $('btnRefresh').onclick=refreshStatus;
 $('btnGroups').onclick=async()=>{ setMsg('',''); await loadGroups(); };
 $('btnWebhook').onclick=async()=>{ const d=await jpost('/admin/api/webhook'); setMsg(d.ok?'ok':'err', d.ok?('Webhook registrado: '+d.url):('Falhou: '+(d.error||''))); };
 
+// Bulletproof: sync the allowlist from the checkboxes at submit time (only if the
+// group list was rendered — otherwise keep the saved/typed value).
+$('form').addEventListener('submit', ()=>{ if(document.querySelector('.gchk')) syncFromChecks(); });
+
 (async()=>{ const on = await refreshStatus(); if(on) loadGroups(); })();
 const t=$('toast'); if(t) setTimeout(()=>{ t.style.transition='opacity .4s'; t.style.opacity='0'; }, 3000);
 </script>
