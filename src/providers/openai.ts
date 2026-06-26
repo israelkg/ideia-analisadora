@@ -25,7 +25,7 @@ export class OpenAiProvider implements IdeaProvider {
       model: this.opts.model,
       instructions: SYSTEM_PROMPT,
       input: userPrompt(input),
-      max_output_tokens: 1500,
+      max_output_tokens: 2000,
     };
     if (this.opts.webSearch) body.tools = [{ type: 'web_search_preview' }];
 
