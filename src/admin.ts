@@ -56,115 +56,203 @@ async function registerWebhook(s: Settings): Promise<{ ok: boolean; url?: string
   }
 }
 
-function secretField(label: string, name: string, isSet: boolean): string {
-  return `<label>${label}
-    <input type="password" name="${name}" autocomplete="new-password"
-      placeholder="${isSet ? '•••••••• (já configurada — deixe vazio p/ manter)' : 'não configurada'}">
-  </label>`;
+function secretRow(label: string, name: string, isSet: boolean): string {
+  const chip = isSet
+    ? '<span class="chip chip-ok">configurada</span>'
+    : '<span class="chip chip-off">não configurada</span>';
+  return `<div class="field">
+    <div class="field-head"><label for="${name}">${label}</label>${chip}</div>
+    <input id="${name}" type="password" name="${name}" autocomplete="new-password"
+      placeholder="${isSet ? '•••••••• — deixe vazio para manter' : 'cole a chave aqui'}">
+  </div>`;
 }
 
 export function renderAdmin(saved = false, hook = ''): string {
   const s = getSettings();
   const ok = isConfigured(s);
   const expected = expectedWebhookUrl(s) ?? '(defina a Public Base URL)';
-  const hookBanner =
-    hook === 'ok' ? '<div class="status ok">Webhook registrado na AvisaAPI ✅</div>'
-    : hook === 'err' ? '<div class="status warn">Não consegui registrar o webhook (confira AvisaAPI/Base URL).</div>'
+  const toast =
+    saved && hook === 'ok' ? 'Salvo e webhook registrado ✅'
+    : saved && hook === 'err' ? 'Salvo, mas o webhook falhou — confira a AvisaAPI/Base URL'
+    : saved ? 'Salvo ✅'
     : '';
   return `<!doctype html><html lang="pt-br"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Integrações · idea-analyzer</title>
 <style>
-  :root{color-scheme:light}
-  body{font-family:system-ui,sans-serif;max-width:660px;margin:2rem auto;padding:0 1rem;color:#222;background:#faf7f5}
-  h1{font-size:1.4rem}h2{font-size:1.05rem;margin:.2rem 0}
-  .status{padding:.6rem .9rem;border-radius:.6rem;margin:1rem 0;font-weight:600}
-  .ok{background:#dcfce7;color:#166534}.warn{background:#fef9c3;color:#854d0e}.muted{background:#eee;color:#555}
-  form{display:grid;gap:1rem;margin-top:1rem}
-  label{display:grid;gap:.3rem;font-weight:600;font-size:.9rem}
-  input[type=text],input[type=password],select{padding:.5rem .6rem;border:1px solid #d6cfc9;border-radius:.5rem;font-size:.95rem}
-  .row{display:flex;gap:.5rem;align-items:center;font-weight:500}.row input{width:auto}
-  fieldset{border:1px solid #e7ded8;border-radius:.7rem;padding:1rem;display:grid;gap:1rem;margin:0}
-  legend{font-weight:700;padding:0 .4rem}
-  button{background:#7c2d12;color:#fff;border:0;padding:.6rem 1.1rem;border-radius:.6rem;font-size:.95rem;cursor:pointer}
-  button.sec{background:#e7ded8;color:#333}
-  code{background:#efe9e4;padding:.1rem .3rem;border-radius:.3rem;font-size:.82rem;word-break:break-all}
-  .hint{font-weight:400;color:#6b6b6b;font-size:.8rem}
-  #qrbox img{width:240px;height:240px;border:1px solid #ddd;border-radius:.5rem;background:#fff}
-  .panel{border:1px solid #e7ded8;border-radius:.7rem;padding:1rem;display:grid;gap:.8rem;margin-top:1.2rem}
+  :root{
+    --bg:#0f1117;--card:#171a23;--card2:#1d212c;--bd:#2a2f3d;--bd2:#353b4d;
+    --txt:#e7e9ee;--mut:#9aa1b2;--pri:#7c5cff;--pri2:#9d86ff;
+    --ok:#22c55e;--okbg:#10301d;--warn:#f59e0b;--warnbg:#33260a;--err:#f43f5e;--errbg:#33121c;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  body{font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;margin:0;
+    color:var(--txt);background:radial-gradient(1200px 600px at 50% -10%,#1a1d2b,var(--bg));min-height:100vh}
+  .wrap{max-width:720px;margin:0 auto;padding:2rem 1.1rem 5rem}
+  header.top{display:flex;align-items:center;gap:.8rem;margin-bottom:1.4rem}
+  .logo{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:1.4rem;
+    background:linear-gradient(135deg,var(--pri),#4f3bd1);box-shadow:0 6px 20px -6px var(--pri)}
+  .top h1{font-size:1.25rem;margin:0}.top p{margin:.1rem 0 0;color:var(--mut);font-size:.82rem}
+  .pill{margin-left:auto;display:inline-flex;align-items:center;gap:.45rem;padding:.4rem .75rem;border-radius:999px;
+    font-size:.8rem;font-weight:600;border:1px solid var(--bd2);background:var(--card)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--mut)}
+  .dot.on{background:var(--ok);box-shadow:0 0 0 3px #22c55e22}.dot.off{background:var(--warn)}
+  .card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--bd);
+    border-radius:16px;padding:1.2rem;margin-bottom:1.1rem;box-shadow:0 8px 30px -18px #000}
+  .card h2{font-size:.95rem;margin:0 0 1rem;display:flex;align-items:center;gap:.5rem;letter-spacing:.2px}
+  .card h2 .ic{font-size:1.05rem}
+  .field{display:grid;gap:.35rem;margin-bottom:1rem}.field:last-child{margin-bottom:0}
+  .field-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+  label{font-weight:600;font-size:.82rem;color:var(--txt)}
+  .sub{font-weight:400;color:var(--mut);font-size:.74rem}
+  input[type=text],input[type=password],select{width:100%;padding:.6rem .7rem;border:1px solid var(--bd2);
+    border-radius:10px;font-size:.9rem;background:#0e1018;color:var(--txt);transition:border .15s,box-shadow .15s}
+  input:focus,select:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px #7c5cff33}
+  .chip{font-size:.68rem;font-weight:700;padding:.18rem .5rem;border-radius:999px;text-transform:uppercase;letter-spacing:.3px}
+  .chip-ok{background:var(--okbg);color:#4ade80}.chip-off{background:var(--warnbg);color:#fbbf24}
+  .switch{display:flex;align-items:center;gap:.6rem;font-size:.84rem;font-weight:500;cursor:pointer}
+  .switch input{display:none}
+  .track{width:40px;height:23px;border-radius:999px;background:var(--bd2);position:relative;transition:background .15s;flex:none}
+  .track::after{content:'';position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#fff;transition:transform .15s}
+  .switch input:checked+.track{background:var(--pri)}.switch input:checked+.track::after{transform:translateX(17px)}
+  .btn{border:0;padding:.62rem 1.1rem;border-radius:10px;font-size:.86rem;font-weight:600;cursor:pointer;transition:filter .15s,transform .05s}
+  .btn:active{transform:translateY(1px)}.btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn-pri{background:linear-gradient(135deg,var(--pri),#5a43d6);color:#fff;box-shadow:0 6px 18px -8px var(--pri)}
+  .btn-pri:hover{filter:brightness(1.08)}
+  .btn-sec{background:#222634;color:var(--txt);border:1px solid var(--bd2)}.btn-sec:hover{background:#2a2f3f}
+  .btns{display:flex;flex-wrap:wrap;gap:.5rem}
+  code{background:#0e1018;border:1px solid var(--bd);padding:.15rem .4rem;border-radius:6px;font-size:.76rem;word-break:break-all;color:var(--pri2)}
+  .conn{display:flex;align-items:center;gap:.7rem;padding:.7rem .85rem;border-radius:12px;background:#0e1018;border:1px solid var(--bd2);margin-bottom:1rem}
+  .conn .lbl{font-weight:600;font-size:.88rem}.conn .ph{color:var(--mut);font-size:.8rem;margin-left:auto}
+  #qrbox{display:grid;place-items:center;margin-bottom:1rem}
+  #qrbox img{width:230px;height:230px;border-radius:14px;background:#fff;padding:10px;box-shadow:0 10px 30px -12px #000}
+  #qrbox .qrhint{color:var(--mut);font-size:.78rem;margin-top:.5rem;text-align:center}
+  .savebar{position:fixed;left:0;right:0;bottom:0;background:#0e1018cc;backdrop-filter:blur(8px);
+    border-top:1px solid var(--bd);padding:.8rem 1.1rem;display:flex;align-items:center;gap:1rem;justify-content:center}
+  .savebar .exp{color:var(--mut);font-size:.72rem;margin-right:auto;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .toast{position:fixed;top:1rem;left:50%;transform:translateX(-50%);background:var(--okbg);color:#86efac;
+    border:1px solid #22c55e44;padding:.6rem 1rem;border-radius:10px;font-size:.84rem;font-weight:600;z-index:9;box-shadow:0 10px 30px -10px #000}
+  .msg{padding:.55rem .75rem;border-radius:9px;font-size:.82rem;font-weight:500;margin-top:.6rem}
+  .msg.ok{background:var(--okbg);color:#86efac}.msg.warn{background:var(--warnbg);color:#fcd34d}.msg.err{background:var(--errbg);color:#fda4af}
 </style></head><body>
-<h1>⚙️ Integrações — idea-analyzer</h1>
-${saved ? '<div class="status ok">Salvo ✅</div>' : ''}
-${hookBanner}
-<div class="status ${ok ? 'ok' : 'warn'}">${ok ? 'Chaves configuradas.' : 'Faltam chaves — preencha abaixo p/ ativar.'}</div>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">💡</div>
+    <div><h1>idea-analyzer</h1><p>Integrações</p></div>
+    <span class="pill"><span id="pillDot" class="dot"></span><span id="pillTxt">…</span></span>
+  </header>
 
-<form method="post" action="/admin">
-  <fieldset><legend>IA</legend>
-    <label>Provedor <select name="llmProvider"><option value="openai" ${s.llmProvider === 'openai' ? 'selected' : ''}>OpenAI</option></select></label>
-    <label>Modelo <input type="text" name="openaiModel" value="${esc(s.openaiModel)}"></label>
-    ${secretField('OpenAI API Key', 'openaiApiKey', Boolean(s.openaiApiKey))}
-    <label class="row"><input type="checkbox" name="openaiWebSearch" ${s.openaiWebSearch ? 'checked' : ''}> Busca web real (concorrentes/mercado)</label>
-  </fieldset>
-  <fieldset><legend>WhatsApp (AvisaAPI)</legend>
-    <label>Base URL <input type="text" name="avisaBaseUrl" value="${esc(s.avisaBaseUrl)}"></label>
-    ${secretField('AvisaAPI API Key', 'avisaApiKey', Boolean(s.avisaApiKey))}
-    <label>Public Base URL (deste serviço) <span class="hint">p/ registrar o webhook, ex: <code>https://ideias.berrysystem.com.br</code></span>
-      <input type="text" name="publicBaseUrl" value="${esc(s.publicBaseUrl || publicBase(s))}"></label>
-    <label>Grupo(s) permitido(s) — JIDs <span class="hint">vazio = qualquer grupo. Use o seletor abaixo após conectar.</span>
-      <input type="text" id="groupAllowlist" name="groupAllowlist" value="${esc(s.groupAllowlist.join(', '))}"></label>
-    <label class="row"><input type="checkbox" name="allowDirect" ${s.allowDirect ? 'checked' : ''}> Responder também em DMs</label>
-  </fieldset>
-  <button type="submit">Salvar</button>
-  <p class="hint">Webhook esperado: <code>${esc(expected)}</code></p>
-</form>
+  ${toast ? `<div class="toast" id="toast">${esc(toast)}</div>` : ''}
 
-<div class="panel">
-  <h2>📱 Conexão WhatsApp</h2>
-  <div id="connStatus" class="status muted">Verificando…</div>
-  <div id="qrbox"></div>
-  <div class="row" style="flex-wrap:wrap;gap:.6rem">
-    <button type="button" id="btnConnect" class="sec">Conectar / Gerar QR</button>
-    <button type="button" id="btnWebhook" class="sec">Registrar webhook</button>
-    <button type="button" id="btnGroups" class="sec">Listar grupos</button>
+  <div class="status-banner card" style="${ok ? 'border-color:#22c55e44' : 'border-color:#f59e0b44'}">
+    <h2 style="margin:0"><span class="ic">${ok ? '✅' : '⚠️'}</span>${ok ? 'Tudo configurado — o bot está pronto.' : 'Faltam chaves — preencha abaixo para ativar.'}</h2>
   </div>
-  <label>Grupos do número <span class="hint">selecione p/ travar o allowlist</span>
-    <select id="groupSelect"><option value="">— conecte e clique em Listar grupos —</option></select>
-  </label>
+
+  <form method="post" action="/admin" id="form">
+    <div class="card">
+      <h2><span class="ic">🤖</span> Inteligência Artificial</h2>
+      <div class="field">
+        <label for="llmProvider">Provedor</label>
+        <select id="llmProvider" name="llmProvider"><option value="openai" ${s.llmProvider === 'openai' ? 'selected' : ''}>OpenAI</option></select>
+      </div>
+      <div class="field">
+        <label for="openaiModel">Modelo</label>
+        <input id="openaiModel" type="text" name="openaiModel" value="${esc(s.openaiModel)}" placeholder="gpt-4o">
+      </div>
+      ${secretRow('OpenAI API Key', 'openaiApiKey', Boolean(s.openaiApiKey))}
+      <label class="switch"><input type="checkbox" name="openaiWebSearch" ${s.openaiWebSearch ? 'checked' : ''}><span class="track"></span> Busca web real (concorrentes / mercado atual)</label>
+    </div>
+
+    <div class="card">
+      <h2><span class="ic">💬</span> WhatsApp (AvisaAPI)</h2>
+      <div class="field">
+        <label for="avisaBaseUrl">Base URL</label>
+        <input id="avisaBaseUrl" type="text" name="avisaBaseUrl" value="${esc(s.avisaBaseUrl)}" placeholder="https://www.avisaapi.com.br/api">
+      </div>
+      ${secretRow('AvisaAPI API Key', 'avisaApiKey', Boolean(s.avisaApiKey))}
+      <div class="field">
+        <div class="field-head"><label for="publicBaseUrl">Public Base URL</label><span class="sub">deste serviço — usado no webhook</span></div>
+        <input id="publicBaseUrl" type="text" name="publicBaseUrl" value="${esc(s.publicBaseUrl || publicBase(s))}" placeholder="https://ideias.berrysystem.com.br">
+      </div>
+      <div class="field">
+        <div class="field-head"><label for="groupAllowlist">Grupos permitidos (JIDs)</label><span class="sub">vazio = qualquer grupo</span></div>
+        <input id="groupAllowlist" type="text" name="groupAllowlist" value="${esc(s.groupAllowlist.join(', '))}" placeholder="120363...@g.us">
+      </div>
+      <label class="switch"><input type="checkbox" name="allowDirect" ${s.allowDirect ? 'checked' : ''}><span class="track"></span> Responder também em DMs</label>
+    </div>
+
+    <div class="card">
+      <h2><span class="ic">📱</span> Conexão do número</h2>
+      <div class="conn">
+        <span id="connDot" class="dot"></span>
+        <span id="connLbl" class="lbl">Verificando…</span>
+        <span id="connPh" class="ph"></span>
+      </div>
+      <div id="qrbox"></div>
+      <div class="btns">
+        <button type="button" class="btn btn-pri" id="btnConnect">Conectar / Gerar QR</button>
+        <button type="button" class="btn btn-sec" id="btnRefresh">Atualizar status</button>
+        <button type="button" class="btn btn-sec" id="btnWebhook">Registrar webhook</button>
+        <button type="button" class="btn btn-sec" id="btnGroups">Listar grupos</button>
+      </div>
+      <div class="field" style="margin-top:1rem">
+        <div class="field-head"><label for="groupSelect">Grupos do número</label><span class="sub">selecione p/ travar o allowlist</span></div>
+        <select id="groupSelect"><option value="">— conecte e clique em Listar grupos —</option></select>
+      </div>
+      <div id="connMsg"></div>
+    </div>
+  </form>
+</div>
+
+<div class="savebar">
+  <span class="exp">Webhook: <code>${esc(expected)}</code></span>
+  <button type="submit" form="form" class="btn btn-pri">Salvar alterações</button>
 </div>
 
 <script>
 const $ = (id) => document.getElementById(id);
 async function jget(u){ const r = await fetch(u); return r.json(); }
 async function jpost(u){ const r = await fetch(u,{method:'POST'}); return r.json(); }
+function setMsg(kind,text){ $('connMsg').innerHTML = text ? '<div class="msg '+kind+'">'+text+'</div>' : ''; }
 
-async function refreshStatus(){
-  const d = await jget('/admin/api/status');
-  const c = d.connection || {};
-  if (c.loggedIn){ $('connStatus').className='status ok'; $('connStatus').textContent='Conectado'+(c.phone?(' · '+c.phone):''); $('qrbox').innerHTML=''; }
-  else { $('connStatus').className='status warn'; $('connStatus').textContent='Desconectado — gere o QR e escaneie'; }
-  if (d.webhook){ const w=d.webhook; if(w.expected){ $('connStatus').title='webhook: '+(w.match?'ok':'divergente'); } }
-  return c.loggedIn;
+function paintStatus(c){
+  const on = !!c.loggedIn;
+  $('pillDot').className = 'dot ' + (on?'on':'off');
+  $('pillTxt').textContent = on ? 'Conectado' : 'Desconectado';
+  $('connDot').className = 'dot ' + (on?'on':'off');
+  $('connLbl').textContent = on ? 'Conectado' : 'Desconectado — gere o QR e escaneie';
+  $('connPh').textContent = on && c.phone ? '+'+c.phone : '';
+  if (on) $('qrbox').innerHTML='';
+  return on;
 }
+async function refreshStatus(){ const d = await jget('/admin/api/status'); return paintStatus(d.connection||{}); }
+
 let polling=null;
 async function connect(){
-  $('qrbox').innerHTML='gerando QR…';
+  setMsg('', '');
+  $('qrbox').innerHTML='<div class="qrhint">gerando QR…</div>';
   const d = await jget('/admin/api/qr');
-  if (d.status==='already_connected'){ $('qrbox').innerHTML=''; await refreshStatus(); return; }
-  if (d.status!=='qr_ready'){ $('qrbox').innerHTML='<div class="status warn">'+(d.message||'erro ao gerar QR')+'</div>'; return; }
-  $('qrbox').innerHTML='<img src="'+d.qrCode+'" alt="QR">';
+  if (d.status==='already_connected'){ await refreshStatus(); return; }
+  if (d.status!=='qr_ready'){ $('qrbox').innerHTML=''; setMsg('err', d.message||'erro ao gerar QR'); return; }
+  $('qrbox').innerHTML='<img src="'+d.qrCode+'" alt="QR"><div class="qrhint">Abra o WhatsApp › Aparelhos conectados › Conectar aparelho</div>';
   if (polling) clearInterval(polling);
-  polling = setInterval(async()=>{ const on=await refreshStatus(); if(on){ clearInterval(polling); polling=null; await jpost('/admin/api/webhook'); await loadGroups(); } }, 3000);
+  polling = setInterval(async()=>{ const on=await refreshStatus(); if(on){ clearInterval(polling); polling=null; await jpost('/admin/api/webhook'); await loadGroups(); setMsg('ok','Conectado! Webhook registrado e grupos carregados.'); } }, 3000);
 }
 async function loadGroups(){
   const gs = await jget('/admin/api/groups');
   const sel = $('groupSelect');
+  if (!gs.length){ sel.innerHTML='<option value="">— nenhum grupo (o número está em algum grupo?)</option>'; return; }
   sel.innerHTML = '<option value="">— escolher grupo —</option>' + gs.map(g=>'<option value="'+g.jid+'">'+(g.name||g.jid)+'</option>').join('');
 }
 $('btnConnect').onclick=connect;
-$('btnWebhook').onclick=async()=>{ const d=await jpost('/admin/api/webhook'); $('connStatus').className='status '+(d.ok?'ok':'warn'); $('connStatus').textContent=d.ok?('Webhook registrado: '+d.url):('Webhook falhou: '+(d.error||'')); };
-$('btnGroups').onclick=loadGroups;
-$('groupSelect').onchange=(e)=>{ if(e.target.value) $('groupAllowlist').value = e.target.value; };
-refreshStatus();
+$('btnRefresh').onclick=refreshStatus;
+$('btnGroups').onclick=async()=>{ setMsg('',''); await loadGroups(); };
+$('btnWebhook').onclick=async()=>{ const d=await jpost('/admin/api/webhook'); setMsg(d.ok?'ok':'err', d.ok?('Webhook registrado: '+d.url):('Falhou: '+(d.error||''))); };
+$('groupSelect').onchange=(e)=>{ if(e.target.value){ $('groupAllowlist').value = e.target.value; setMsg('ok','Allowlist travado neste grupo. Clique em Salvar.'); } };
+
+(async()=>{ const on = await refreshStatus(); if(on) loadGroups(); })();
+const t=$('toast'); if(t) setTimeout(()=>{ t.style.transition='opacity .4s'; t.style.opacity='0'; }, 3000);
 </script>
 </body></html>`;
 }
