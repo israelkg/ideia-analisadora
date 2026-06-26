@@ -31,7 +31,7 @@ const DEFAULTS: Settings = {
   openaiApiKey: '',
   openaiModel: 'gpt-4o',
   openaiWebSearch: true,
-  avisaBaseUrl: 'https://api.avisaapi.com.br',
+  avisaBaseUrl: 'https://www.avisaapi.com.br/api',
   avisaApiKey: '',
   publicBaseUrl: '',
   groupAllowlist: [],
