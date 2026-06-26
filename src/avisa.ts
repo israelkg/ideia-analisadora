@@ -121,8 +121,17 @@ export async function listGroups(config: AvisaConfig): Promise<AvisaGroup[]> {
       headers: { Authorization: `Bearer ${config.apiKey}` },
     });
     if (!res.ok) return [];
-    const data = JSON.parse(await res.text()) as Record<string, unknown>;
-    const raw = (data.data ?? data.groups ?? data) as unknown;
+    // AvisaAPI nests deep + varies: data.data.data.Groups | data.data.Groups |
+    // data.Groups | data.groups | data (array). Dig for the first array we find.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d = JSON.parse(await res.text()) as any;
+    const raw =
+      d?.data?.data?.Groups ??
+      d?.data?.Groups ??
+      d?.Groups ??
+      d?.data?.groups ??
+      d?.groups ??
+      (Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : []);
     const arr = Array.isArray(raw) ? raw : [];
     return arr
       .map((g) => {
