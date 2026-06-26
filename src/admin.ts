@@ -32,10 +32,15 @@ function avisaConfig(s: Settings): AvisaConfig {
   return { baseUrl: s.avisaBaseUrl, apiKey: s.avisaApiKey };
 }
 
+/** Effective public origin: per-settings override, else infra env. */
+function publicBase(s: Settings): string {
+  return (s.publicBaseUrl || env.publicBaseUrl || '').replace(/\/$/, '');
+}
+
 /** The webhook URL we want AvisaAPI to call, derived from publicBaseUrl + token. */
 function expectedWebhookUrl(s: Settings): string | null {
-  if (!s.publicBaseUrl) return null;
-  return `${s.publicBaseUrl.replace(/\/$/, '')}/webhook/${env.webhookToken}`;
+  const base = publicBase(s);
+  return base ? `${base}/webhook/${env.webhookToken}` : null;
 }
 
 /** Register our webhook in AvisaAPI. Safe to call repeatedly. */
@@ -104,7 +109,7 @@ ${hookBanner}
     <label>Base URL <input type="text" name="avisaBaseUrl" value="${esc(s.avisaBaseUrl)}"></label>
     ${secretField('AvisaAPI API Key', 'avisaApiKey', Boolean(s.avisaApiKey))}
     <label>Public Base URL (deste serviço) <span class="hint">p/ registrar o webhook, ex: <code>https://ideias.berrysystem.com.br</code></span>
-      <input type="text" name="publicBaseUrl" value="${esc(s.publicBaseUrl)}"></label>
+      <input type="text" name="publicBaseUrl" value="${esc(s.publicBaseUrl || publicBase(s))}"></label>
     <label>Grupo(s) permitido(s) — JIDs <span class="hint">vazio = qualquer grupo. Use o seletor abaixo após conectar.</span>
       <input type="text" id="groupAllowlist" name="groupAllowlist" value="${esc(s.groupAllowlist.join(', '))}"></label>
     <label class="row"><input type="checkbox" name="allowDirect" ${s.allowDirect ? 'checked' : ''}> Responder também em DMs</label>
@@ -181,7 +186,7 @@ export async function handleSave(req: Request, res: Response): Promise<void> {
 
   // Auto-register the webhook in AvisaAPI when we have what we need.
   let hook = '';
-  if (next.avisaApiKey && next.avisaBaseUrl && next.publicBaseUrl) {
+  if (next.avisaApiKey && next.avisaBaseUrl && publicBase(next)) {
     hook = (await registerWebhook(next)).ok ? 'ok' : 'err';
   }
   res.redirect(`/admin?saved=1&hook=${hook}`);

@@ -15,6 +15,8 @@ export interface Env {
   adminPassword: string;
   /** Where the JSON settings store lives (mount a volume here in prod). */
   settingsPath: string;
+  /** Public origin of this service (seeds the webhook URL); overridable in /admin. */
+  publicBaseUrl: string;
   /** Matches the "ideia:" trigger prefix (accent/spacing tolerant). */
   trigger: RegExp;
 }
@@ -34,5 +36,6 @@ export const env: Env = {
   secretsKey: envVar('SECRETS_ENCRYPTION_KEY', 'dev-only-insecure-key-change-me'),
   adminPassword: envVar('ADMIN_PASSWORD', 'admin'),
   settingsPath: envVar('SETTINGS_PATH', './data/settings.json'),
+  publicBaseUrl: envVar('PUBLIC_BASE_URL', ''),
   trigger: /^\s*id[eé]ia\s*[:\-–]\s*/i,
 };
