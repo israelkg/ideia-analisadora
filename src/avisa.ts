@@ -58,6 +58,100 @@ export async function setWebhook(config: AvisaConfig, webhookUrl: string): Promi
   }
 }
 
+export interface QrResult {
+  status: 'qr_ready' | 'already_connected' | 'error';
+  qrCode: string | null;
+  message?: string;
+}
+
+/** Fetch a pairing QR (also puts the instance into pairing mode). */
+export async function getQrCode(config: AvisaConfig): Promise<QrResult> {
+  try {
+    const res = await fetch(joinUrl(config.baseUrl, '/instance/qr'), {
+      headers: { Authorization: `Bearer ${config.apiKey}` },
+    });
+    const text = await res.text();
+    let data: Record<string, unknown> = {};
+    try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+    if (!res.ok) return { status: 'error', qrCode: null, message: `HTTP ${res.status}: ${text.slice(0, 200)}` };
+    const inner = (data.data as Record<string, unknown>) ?? data;
+    const raw = (inner.qrcode ?? inner.qr ?? inner.image ?? data.qrcode ?? data.qr) as string | undefined;
+    if (!raw) {
+      const loggedIn = Boolean(inner.loggedIn ?? inner.connected ?? data.loggedIn);
+      return loggedIn
+        ? { status: 'already_connected', qrCode: null }
+        : { status: 'error', qrCode: null, message: 'QR não retornado pela AvisaAPI' };
+    }
+    return { status: 'qr_ready', qrCode: raw.startsWith('data:') ? raw : `data:image/png;base64,${raw}` };
+  } catch (err) {
+    return { status: 'error', qrCode: null, message: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Current instance connection status. */
+export async function getInstanceStatus(config: AvisaConfig): Promise<{ loggedIn: boolean; phone?: string }> {
+  try {
+    const res = await fetch(joinUrl(config.baseUrl, '/instance/status'), {
+      headers: { Authorization: `Bearer ${config.apiKey}` },
+    });
+    if (!res.ok) return { loggedIn: false };
+    const data = JSON.parse(await res.text()) as Record<string, unknown>;
+    const inner =
+      ((data.data as Record<string, unknown>)?.data as Record<string, unknown>) ??
+      (data.data as Record<string, unknown>) ??
+      data;
+    return {
+      loggedIn: Boolean(inner.LoggedIn ?? inner.loggedIn ?? inner.Connected ?? inner.connected),
+      phone: typeof inner.Jid === 'string' ? String(inner.Jid).split(':')[0].split('@')[0] : undefined,
+    };
+  } catch {
+    return { loggedIn: false };
+  }
+}
+
+export interface AvisaGroup {
+  jid: string;
+  name: string;
+}
+
+/** List groups the connected number belongs to (for picking the allowlist JID). */
+export async function listGroups(config: AvisaConfig): Promise<AvisaGroup[]> {
+  try {
+    const res = await fetch(joinUrl(config.baseUrl, '/group/list'), {
+      headers: { Authorization: `Bearer ${config.apiKey}` },
+    });
+    if (!res.ok) return [];
+    const data = JSON.parse(await res.text()) as Record<string, unknown>;
+    const raw = (data.data ?? data.groups ?? data) as unknown;
+    const arr = Array.isArray(raw) ? raw : [];
+    return arr
+      .map((g) => {
+        const o = g as Record<string, unknown>;
+        const jid = (o.JID ?? o.jid ?? o.id ?? o.Id) as string | undefined;
+        const name = (o.Name ?? o.name ?? o.Subject ?? o.subject) as string | undefined;
+        return jid ? { jid: String(jid), name: String(name ?? jid) } : null;
+      })
+      .filter((g): g is AvisaGroup => g !== null);
+  } catch {
+    return [];
+  }
+}
+
+/** Read the webhook URL currently registered in AvisaAPI (null if none/unreachable). */
+export async function getWebhook(config: AvisaConfig): Promise<string | null> {
+  try {
+    const res = await fetch(joinUrl(config.baseUrl, '/webhook'), {
+      headers: { Authorization: `Bearer ${config.apiKey}` },
+    });
+    if (!res.ok) return null;
+    const data = JSON.parse(await res.text()) as Record<string, unknown>;
+    const inner = (data.data as Record<string, unknown>) ?? data;
+    return (inner.webhook ?? inner.url ?? data.webhook ?? null) as string | null;
+  } catch {
+    return null;
+  }
+}
+
 function extractObj(parent: unknown, ...keys: string[]): Record<string, unknown> {
   if (!parent || typeof parent !== 'object') return {};
   for (const k of keys) {

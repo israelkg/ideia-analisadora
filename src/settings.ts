@@ -15,6 +15,9 @@ export interface Settings {
   openaiWebSearch: boolean;
   avisaBaseUrl: string;
   avisaApiKey: string;
+  /** Public origin of this service, e.g. https://ideias.berrysystem.com.br.
+   * Used to auto-register the webhook URL in AvisaAPI on save. */
+  publicBaseUrl: string;
   /** Group chat JIDs the bot answers in; empty = any group. */
   groupAllowlist: string[];
   /** Also analyze ideas sent in DMs, not just groups. */
@@ -30,6 +33,7 @@ const DEFAULTS: Settings = {
   openaiWebSearch: true,
   avisaBaseUrl: 'https://api.avisaapi.com.br',
   avisaApiKey: '',
+  publicBaseUrl: '',
   groupAllowlist: [],
   allowDirect: false,
 };

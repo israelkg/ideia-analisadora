@@ -2,7 +2,15 @@ import express from 'express';
 import { env } from './config.js';
 import { getSettings, isConfigured } from './settings.js';
 import { handleInbound, analyzeIdea } from './analyzer.js';
-import { basicAuth, renderAdmin, handleSave } from './admin.js';
+import {
+  basicAuth,
+  renderAdmin,
+  handleSave,
+  apiStatus,
+  apiQr,
+  apiRegisterWebhook,
+  apiGroups,
+} from './admin.js';
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
@@ -15,9 +23,13 @@ app.get('/health', (_req, res) => {
 
 // --- Integrações (admin) ---
 app.get('/admin', basicAuth, (req, res) => {
-  res.type('html').send(renderAdmin(req.query.saved === '1'));
+  res.type('html').send(renderAdmin(req.query.saved === '1', String(req.query.hook ?? '')));
 });
 app.post('/admin', basicAuth, handleSave);
+app.get('/admin/api/status', basicAuth, apiStatus);
+app.get('/admin/api/qr', basicAuth, apiQr);
+app.post('/admin/api/webhook', basicAuth, apiRegisterWebhook);
+app.get('/admin/api/groups', basicAuth, apiGroups);
 
 /**
  * AvisaAPI webhook. Respond 200 immediately, then process async so a slow LLM
