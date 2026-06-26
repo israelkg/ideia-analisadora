@@ -135,6 +135,13 @@ export function renderAdmin(saved = false, hook = ''): string {
     border:1px solid #22c55e44;padding:.6rem 1rem;border-radius:10px;font-size:.84rem;font-weight:600;z-index:9;box-shadow:0 10px 30px -10px #000}
   .msg{padding:.55rem .75rem;border-radius:9px;font-size:.82rem;font-weight:500;margin-top:.6rem}
   .msg.ok{background:var(--okbg);color:#86efac}.msg.warn{background:var(--warnbg);color:#fcd34d}.msg.err{background:var(--errbg);color:#fda4af}
+  .tabs{display:flex;gap:.35rem;margin-bottom:1.1rem;background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:.3rem}
+  .tab{flex:1;display:flex;align-items:center;justify-content:center;gap:.4rem;padding:.55rem .6rem;border-radius:9px;
+    font-size:.84rem;font-weight:600;color:var(--mut);background:transparent;border:0;cursor:pointer;transition:background .15s,color .15s}
+  .tab:hover{color:var(--txt)}
+  .tab.active{background:linear-gradient(135deg,var(--pri),#5a43d6);color:#fff;box-shadow:0 6px 16px -8px var(--pri)}
+  .tab .badge{width:7px;height:7px;border-radius:50%;background:var(--warn)}.tab .badge.on{background:var(--ok)}
+  .tabpanel{display:none}.tabpanel.active{display:block}
 </style></head><body>
 <div class="wrap">
   <header class="top">
@@ -149,8 +156,14 @@ export function renderAdmin(saved = false, hook = ''): string {
     <h2 style="margin:0"><span class="ic">${ok ? '✅' : '⚠️'}</span>${ok ? 'Tudo configurado — o bot está pronto.' : 'Faltam chaves — preencha abaixo para ativar.'}</h2>
   </div>
 
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab active" data-tab="ia">🤖 IA</button>
+    <button type="button" class="tab" data-tab="wa">💬 WhatsApp</button>
+    <button type="button" class="tab" data-tab="conn"><span id="tabConnBadge" class="badge"></span> Conexão</button>
+  </div>
+
   <form method="post" action="/admin" id="form">
-    <div class="card">
+    <div class="card tabpanel active" data-panel="ia">
       <h2><span class="ic">🤖</span> Inteligência Artificial</h2>
       <div class="field">
         <label for="llmProvider">Provedor</label>
@@ -164,7 +177,7 @@ export function renderAdmin(saved = false, hook = ''): string {
       <label class="switch"><input type="checkbox" name="openaiWebSearch" ${s.openaiWebSearch ? 'checked' : ''}><span class="track"></span> Busca web real (concorrentes / mercado atual)</label>
     </div>
 
-    <div class="card">
+    <div class="card tabpanel" data-panel="wa">
       <h2><span class="ic">💬</span> WhatsApp (AvisaAPI)</h2>
       <div class="field">
         <label for="avisaBaseUrl">Base URL</label>
@@ -182,7 +195,7 @@ export function renderAdmin(saved = false, hook = ''): string {
       <label class="switch"><input type="checkbox" name="allowDirect" ${s.allowDirect ? 'checked' : ''}><span class="track"></span> Responder também em DMs</label>
     </div>
 
-    <div class="card">
+    <div class="card tabpanel" data-panel="conn">
       <h2><span class="ic">📱</span> Conexão do número</h2>
       <div class="conn">
         <span id="connDot" class="dot"></span>
@@ -216,6 +229,17 @@ async function jget(u){ const r = await fetch(u); return r.json(); }
 async function jpost(u){ const r = await fetch(u,{method:'POST'}); return r.json(); }
 function setMsg(kind,text){ $('connMsg').innerHTML = text ? '<div class="msg '+kind+'">'+text+'</div>' : ''; }
 
+// Tabs
+document.querySelectorAll('.tab').forEach((t)=>{
+  t.onclick=()=>{
+    const id=t.dataset.tab;
+    document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));
+    document.querySelectorAll('.tabpanel').forEach(p=>p.classList.toggle('active',p.dataset.panel===id));
+    location.hash=id;
+  };
+});
+if(location.hash){ const t=document.querySelector('.tab[data-tab="'+location.hash.slice(1)+'"]'); if(t) t.click(); }
+
 function paintStatus(c){
   const on = !!c.loggedIn;
   $('pillDot').className = 'dot ' + (on?'on':'off');
@@ -223,6 +247,7 @@ function paintStatus(c){
   $('connDot').className = 'dot ' + (on?'on':'off');
   $('connLbl').textContent = on ? 'Conectado' : 'Desconectado — gere o QR e escaneie';
   $('connPh').textContent = on && c.phone ? '+'+c.phone : '';
+  const b=$('tabConnBadge'); if(b) b.className='badge'+(on?' on':'');
   if (on) $('qrbox').innerHTML='';
   return on;
 }
