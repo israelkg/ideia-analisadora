@@ -142,6 +142,11 @@ export function renderAdmin(saved = false, hook = ''): string {
   .tab.active{background:linear-gradient(135deg,var(--pri),#5a43d6);color:#fff;box-shadow:0 6px 16px -8px var(--pri)}
   .tab .badge{width:7px;height:7px;border-radius:50%;background:var(--warn)}.tab .badge.on{background:var(--ok)}
   .tabpanel{display:none}.tabpanel.active{display:block}
+  .grouplist{display:grid;gap:.4rem;max-height:220px;overflow:auto;padding:.2rem}
+  .gitem{display:flex;align-items:center;gap:.55rem;padding:.5rem .6rem;border:1px solid var(--bd2);border-radius:9px;
+    background:#0e1018;font-size:.86rem;font-weight:500;cursor:pointer}
+  .gitem:hover{border-color:var(--pri)}
+  .gitem input{width:16px;height:16px;accent-color:var(--pri)}
 </style></head><body>
 <div class="wrap">
   <header class="top">
@@ -222,8 +227,8 @@ export function renderAdmin(saved = false, hook = ''): string {
         <button type="button" class="btn btn-sec" id="btnGroups">Listar grupos</button>
       </div>
       <div class="field" style="margin-top:1rem">
-        <div class="field-head"><label for="groupSelect">Grupos do número</label><span class="sub">selecione p/ travar o allowlist</span></div>
-        <select id="groupSelect"><option value="">— conecte e clique em Listar grupos —</option></select>
+        <div class="field-head"><label>Grupos do número</label><span class="sub">marque os que o bot deve responder</span></div>
+        <div id="groupList" class="grouplist"><span class="sub">conecte e clique em "Listar grupos"</span></div>
       </div>
       <div id="connMsg"></div>
     </div>
@@ -276,17 +281,23 @@ async function connect(){
   if (polling) clearInterval(polling);
   polling = setInterval(async()=>{ const on=await refreshStatus(); if(on){ clearInterval(polling); polling=null; await jpost('/admin/api/webhook'); await loadGroups(); setMsg('ok','Conectado! Webhook registrado e grupos carregados.'); } }, 3000);
 }
+function selectedJids(){ return $('groupAllowlist').value.split(',').map(x=>x.trim()).filter(Boolean); }
+function syncFromChecks(){
+  const jids=[...document.querySelectorAll('.gchk:checked')].map(c=>c.value);
+  $('groupAllowlist').value = jids.join(', ');
+}
 async function loadGroups(){
   const gs = await jget('/admin/api/groups');
-  const sel = $('groupSelect');
-  if (!gs.length){ sel.innerHTML='<option value="">— nenhum grupo (o número está em algum grupo?)</option>'; return; }
-  sel.innerHTML = '<option value="">— escolher grupo —</option>' + gs.map(g=>'<option value="'+g.jid+'">'+(g.name||g.jid)+'</option>').join('');
+  const box = $('groupList');
+  if (!gs.length){ box.innerHTML='<span class="sub">nenhum grupo (o bot está em algum grupo?)</span>'; return; }
+  const cur = selectedJids();
+  box.innerHTML = gs.map(g=>'<label class="gitem"><input type="checkbox" class="gchk" value="'+g.jid+'"'+(cur.includes(g.jid)?' checked':'')+'> '+(g.name||g.jid)+'</label>').join('');
+  document.querySelectorAll('.gchk').forEach(c=>c.onchange=()=>{ syncFromChecks(); setMsg('ok','Seleção atualizada — clique em Salvar.'); });
 }
 $('btnConnect').onclick=connect;
 $('btnRefresh').onclick=refreshStatus;
 $('btnGroups').onclick=async()=>{ setMsg('',''); await loadGroups(); };
 $('btnWebhook').onclick=async()=>{ const d=await jpost('/admin/api/webhook'); setMsg(d.ok?'ok':'err', d.ok?('Webhook registrado: '+d.url):('Falhou: '+(d.error||''))); };
-$('groupSelect').onchange=(e)=>{ if(e.target.value){ $('groupAllowlist').value = e.target.value; setMsg('ok','Allowlist travado neste grupo. Clique em Salvar.'); } };
 
 (async()=>{ const on = await refreshStatus(); if(on) loadGroups(); })();
 const t=$('toast'); if(t) setTimeout(()=>{ t.style.transition='opacity .4s'; t.style.opacity='0'; }, 3000);
