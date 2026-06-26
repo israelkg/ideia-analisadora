@@ -22,6 +22,9 @@ services:
       - proxy_net
     expose:
       - "4500"
+    volumes:
+      # Persists the encrypted settings store (keys configured via /admin).
+      - settings:/data
     healthcheck:
       # 127.0.0.1 (not localhost): localhost resolves to ::1 first, app binds IPv4 only.
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4500/health || exit 1"]
@@ -29,6 +32,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+
+volumes:
+  settings:
+    name: idea-analyzer-settings
 
 networks:
   proxy_net:

@@ -1,20 +1,30 @@
 import express from 'express';
-import { config } from './config.js';
+import { env } from './config.js';
+import { getSettings, isConfigured } from './settings.js';
 import { handleInbound, analyzeIdea } from './analyzer.js';
+import { basicAuth, renderAdmin, handleSave } from './admin.js';
 
 const app = express();
 app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: false }));
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', provider: config.llm.provider });
+  const s = getSettings();
+  res.json({ status: 'ok', provider: s.llmProvider, configured: isConfigured(s) });
 });
+
+// --- Integrações (admin) ---
+app.get('/admin', basicAuth, (req, res) => {
+  res.type('html').send(renderAdmin(req.query.saved === '1'));
+});
+app.post('/admin', basicAuth, handleSave);
 
 /**
  * AvisaAPI webhook. Respond 200 immediately, then process async so a slow LLM
  * call never makes the gateway retry/time out.
  */
 app.post('/webhook/:token', (req, res) => {
-  if (req.params.token !== config.webhookToken) {
+  if (req.params.token !== env.webhookToken) {
     res.status(404).end();
     return;
   }
@@ -39,7 +49,7 @@ app.post('/analyze', async (req, res) => {
   }
 });
 
-app.listen(config.port, () => {
-  console.log(`idea-analyzer listening on :${config.port} (provider: ${config.llm.provider})`);
-  console.log(`webhook path: POST /webhook/${config.webhookToken}`);
+app.listen(env.port, () => {
+  console.log(`idea-analyzer listening on :${env.port}`);
+  console.log(`admin/integrações: GET /admin   ·   webhook: POST /webhook/${env.webhookToken}`);
 });

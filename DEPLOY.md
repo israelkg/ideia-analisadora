@@ -8,10 +8,11 @@ docker compose behind the shared nginx `reverse-proxy`. Project lives in
 ## 0. Prereqs (one-time, manual)
 
 1. **DNS**: add an A record `ideias.berrysystem.com.br → 191.252.214.184`
-   (KingHost DNS panel). Wait for it to resolve before requesting the cert.
-2. **Secrets**: fill `.env.production` on the server (never commit it):
-   `WEBHOOK_TOKEN`, `AVISA_API_KEY`, `OPENAI_API_KEY`, and ideally
-   `GROUP_ALLOWLIST` (the colleagues' group JID, `...@g.us`).
+   (DNS panel). Wait for it to resolve before requesting the cert.
+2. **Infra env**: fill `.env.production` on the server (never commit it) — only
+   `WEBHOOK_TOKEN`, `ADMIN_PASSWORD`, `SECRETS_ENCRYPTION_KEY`. The OpenAI/AvisaAPI
+   keys and group allowlist are NOT here — they're set later in the `/admin`
+   Integrações UI (stored encrypted in the `idea-analyzer-settings` volume).
 
 ## 1. Build local + transfer image
 
@@ -52,7 +53,13 @@ ssh israel@191.252.214.184 'docker exec reverse-proxy nginx -t && docker exec re
 ssh israel@191.252.214.184 'cd /srv/projects/idea-analyzer && docker compose -f docker-compose.prod.yml --env-file .env.production up -d --no-build'
 ```
 
-## 5. Point AvisaAPI at the webhook
+## 5. Configure keys in the UI
+
+Open `https://ideias.berrysystem.com.br/admin` (HTTP Basic — user `admin`, pass
+`ADMIN_PASSWORD`) and paste the **OpenAI API key**, **AvisaAPI key/base URL**, and
+(optionally) the **group JID** allowlist. Saved encrypted to the volume.
+
+## 6. Point AvisaAPI at the webhook
 
 Webhook URL: `https://ideias.berrysystem.com.br/webhook/<WEBHOOK_TOKEN>`
 Set it in the AvisaAPI panel, or via the driver's `setWebhook` helper.

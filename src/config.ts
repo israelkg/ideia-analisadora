@@ -1,22 +1,25 @@
 import 'dotenv/config';
 
-export interface Config {
+/**
+ * Infra-level env ONLY. Everything the user configures (LLM/AvisaAPI keys,
+ * model, group allowlist…) lives in the encrypted settings store and is edited
+ * via the /admin Integrações page — see settings.ts.
+ */
+export interface Env {
   port: number;
+  /** Secret path segment for the webhook URL: /webhook/<token>. */
   webhookToken: string;
-  avisa: { baseUrl: string; apiKey: string };
-  /** Group chat JIDs the bot answers in; empty = any group. */
-  groupAllowlist: string[];
-  /** Also analyze ideas sent in DMs, not just groups. */
-  allowDirect: boolean;
+  /** Key used to encrypt secret settings at rest. */
+  secretsKey: string;
+  /** Password for HTTP Basic auth on the /admin page (user: admin). */
+  adminPassword: string;
+  /** Where the JSON settings store lives (mount a volume here in prod). */
+  settingsPath: string;
   /** Matches the "ideia:" trigger prefix (accent/spacing tolerant). */
   trigger: RegExp;
-  llm: {
-    provider: string;
-    openai: { apiKey: string; model: string; webSearch: boolean };
-  };
 }
 
-function env(name: string, fallback?: string): string {
+function envVar(name: string, fallback?: string): string {
   const v = process.env[name];
   if (v === undefined || v === '') {
     if (fallback !== undefined) return fallback;
@@ -25,32 +28,11 @@ function env(name: string, fallback?: string): string {
   return v;
 }
 
-function bool(name: string, fallback: boolean): boolean {
-  const v = process.env[name];
-  if (v === undefined || v === '') return fallback;
-  return /^(1|true|yes|on)$/i.test(v);
-}
-
-export const config: Config = {
-  port: Number(env('PORT', '4500')),
-  webhookToken: env('WEBHOOK_TOKEN', 'change-me'),
-  avisa: {
-    baseUrl: env('AVISA_BASE_URL'),
-    apiKey: env('AVISA_API_KEY'),
-  },
-  groupAllowlist: env('GROUP_ALLOWLIST', '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean),
-  allowDirect: bool('ALLOW_DIRECT', false),
-  // "ideia:", "idéia -", "Ideia :" etc. The captured group is everything after.
+export const env: Env = {
+  port: Number(envVar('PORT', '4500')),
+  webhookToken: envVar('WEBHOOK_TOKEN', 'change-me'),
+  secretsKey: envVar('SECRETS_ENCRYPTION_KEY', 'dev-only-insecure-key-change-me'),
+  adminPassword: envVar('ADMIN_PASSWORD', 'admin'),
+  settingsPath: envVar('SETTINGS_PATH', './data/settings.json'),
   trigger: /^\s*id[eé]ia\s*[:\-–]\s*/i,
-  llm: {
-    provider: env('LLM_PROVIDER', 'openai'),
-    openai: {
-      apiKey: env('OPENAI_API_KEY', ''),
-      model: env('OPENAI_MODEL', 'gpt-4o'),
-      webSearch: bool('OPENAI_WEB_SEARCH', true),
-    },
-  },
 };
