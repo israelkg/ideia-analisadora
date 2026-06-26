@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { env } from './config.js';
 import { getSettings, saveSettings, isConfigured, type Settings } from './settings.js';
+import { readHistory } from './history.js';
 import {
   setWebhook,
   getWebhook,
@@ -147,6 +148,12 @@ export function renderAdmin(saved = false, hook = ''): string {
     background:#0e1018;font-size:.86rem;font-weight:500;cursor:pointer}
   .gitem:hover{border-color:var(--pri)}
   .gitem input{width:16px;height:16px;accent-color:var(--pri)}
+  .hentry{border:1px solid var(--bd2);border-radius:11px;padding:.8rem .9rem;margin-bottom:.7rem;background:#0e1018}
+  .hmeta{font-size:.72rem;color:var(--mut);margin-bottom:.35rem;display:flex;gap:.5rem;flex-wrap:wrap}
+  .hidea{font-weight:600;font-size:.9rem;margin-bottom:.5rem}
+  .hentry details summary{cursor:pointer;color:var(--pri2);font-size:.8rem;font-weight:600}
+  .hresp{white-space:pre-wrap;font-size:.82rem;line-height:1.45;margin-top:.5rem;color:var(--txt)}
+  .htag{padding:.1rem .45rem;border-radius:999px;background:#222634;font-weight:600}
 </style></head><body>
 <div class="wrap">
   <header class="top">
@@ -165,6 +172,7 @@ export function renderAdmin(saved = false, hook = ''): string {
     <button type="button" class="tab active" data-tab="ia">🤖 IA</button>
     <button type="button" class="tab" data-tab="wa">💬 WhatsApp</button>
     <button type="button" class="tab" data-tab="conn"><span id="tabConnBadge" class="badge"></span> Conexão</button>
+    <button type="button" class="tab" data-tab="hist">🗂️ Histórico</button>
   </div>
 
   <form method="post" action="/admin" id="form">
@@ -233,6 +241,13 @@ export function renderAdmin(saved = false, hook = ''): string {
       <div id="connMsg"></div>
     </div>
   </form>
+
+  <div class="card tabpanel" data-panel="hist">
+    <h2><span class="ic">🗂️</span> Histórico de análises
+      <button type="button" class="btn btn-sec" id="btnHist" style="margin-left:auto;padding:.35rem .8rem;font-size:.78rem">Atualizar</button>
+    </h2>
+    <div id="histList"><span class="sub">carregando…</span></div>
+  </div>
 </div>
 
 <div class="savebar">
@@ -253,6 +268,7 @@ document.querySelectorAll('.tab').forEach((t)=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));
     document.querySelectorAll('.tabpanel').forEach(p=>p.classList.toggle('active',p.dataset.panel===id));
     location.hash=id;
+    if(id==='hist') loadHistory();
   };
 });
 if(location.hash){ const t=document.querySelector('.tab[data-tab="'+location.hash.slice(1)+'"]'); if(t) t.click(); }
@@ -302,6 +318,21 @@ $('btnWebhook').onclick=async()=>{ const d=await jpost('/admin/api/webhook'); se
 // Bulletproof: sync the allowlist from the checkboxes at submit time (only if the
 // group list was rendered — otherwise keep the saved/typed value).
 $('form').addEventListener('submit', ()=>{ if(document.querySelector('.gchk')) syncFromChecks(); });
+
+function escH(s){ return String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+async function loadHistory(){
+  const box=$('histList'); box.innerHTML='<span class="sub">carregando…</span>';
+  const items = await jget('/admin/api/history');
+  if(!items.length){ box.innerHTML='<span class="sub">nenhuma análise ainda — manda uma ideia no grupo.</span>'; return; }
+  box.innerHTML = items.map(h=>{
+    const dt = (h.ts||'').replace('T',' ').slice(0,16);
+    const who = h.author?escH(h.author):'—';
+    return '<div class="hentry"><div class="hmeta"><span class="htag">'+escH(h.channel||'')+'</span><span>'+dt+'</span><span>'+who+'</span></div>'+
+      '<div class="hidea">💡 '+escH(h.idea)+'</div>'+
+      '<details><summary>ver resposta</summary><div class="hresp">'+escH(h.response)+'</div></details></div>';
+  }).join('');
+}
+$('btnHist').onclick=loadHistory;
 
 (async()=>{ const on = await refreshStatus(); if(on) loadGroups(); })();
 const t=$('toast'); if(t) setTimeout(()=>{ t.style.transition='opacity .4s'; t.style.opacity='0'; }, 3000);
@@ -366,4 +397,8 @@ export async function apiGroups(_req: Request, res: Response): Promise<void> {
     return;
   }
   res.json(await listGroups(avisaConfig(s)));
+}
+
+export function apiHistory(_req: Request, res: Response): void {
+  res.json(readHistory(100));
 }

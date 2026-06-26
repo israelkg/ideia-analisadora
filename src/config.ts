@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { dirname, join } from 'node:path';
 
 /**
  * Infra-level env ONLY. Everything the user configures (LLM/AvisaAPI keys,
@@ -17,6 +18,8 @@ export interface Env {
   settingsPath: string;
   /** Public origin of this service (seeds the webhook URL); overridable in /admin. */
   publicBaseUrl: string;
+  /** JSONL log of analyses (idea + response), for the /admin Histórico view. */
+  historyPath: string;
   /** Matches the "ideia:" trigger prefix (accent/spacing tolerant). */
   trigger: RegExp;
 }
@@ -30,12 +33,15 @@ function envVar(name: string, fallback?: string): string {
   return v;
 }
 
+const settingsPath = envVar('SETTINGS_PATH', './data/settings.json');
+
 export const env: Env = {
   port: Number(envVar('PORT', '4500')),
   webhookToken: envVar('WEBHOOK_TOKEN', 'change-me'),
   secretsKey: envVar('SECRETS_ENCRYPTION_KEY', 'dev-only-insecure-key-change-me'),
   adminPassword: envVar('ADMIN_PASSWORD', 'admin'),
-  settingsPath: envVar('SETTINGS_PATH', './data/settings.json'),
+  settingsPath,
   publicBaseUrl: envVar('PUBLIC_BASE_URL', ''),
+  historyPath: envVar('HISTORY_PATH', join(dirname(settingsPath), 'history.jsonl')),
   trigger: /^\s*id[eé]ia\s*[:\-–]\s*/i,
 };

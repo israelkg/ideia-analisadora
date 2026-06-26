@@ -10,6 +10,7 @@ import {
   apiQr,
   apiRegisterWebhook,
   apiGroups,
+  apiHistory,
 } from './admin.js';
 
 const app = express();
@@ -30,6 +31,7 @@ app.get('/admin/api/status', basicAuth, apiStatus);
 app.get('/admin/api/qr', basicAuth, apiQr);
 app.post('/admin/api/webhook', basicAuth, apiRegisterWebhook);
 app.get('/admin/api/groups', basicAuth, apiGroups);
+app.get('/admin/api/history', basicAuth, apiHistory);
 
 /**
  * AvisaAPI webhook. Respond 200 immediately, then process async so a slow LLM

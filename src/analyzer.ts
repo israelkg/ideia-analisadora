@@ -3,6 +3,7 @@ import { getSettings, isConfigured, type Settings } from './settings.js';
 import { parseWebhook, sendText, type AvisaConfig, type NormalizedInbound } from './avisa.js';
 import { OpenAiProvider } from './providers/openai.js';
 import type { IdeaProvider } from './providers/types.js';
+import { appendHistory } from './history.js';
 
 /** Build the configured provider from current settings. Add cases for more backends. */
 function buildProvider(s: Settings): IdeaProvider {
@@ -62,6 +63,14 @@ export async function handleInbound(payload: unknown): Promise<string> {
 
   const result = await buildProvider(s).analyze({ idea, author: evt.contactDisplayName });
   await sendText(avisaConfig(s), evt.chatJid, formatReply(evt.contactDisplayName, result.text));
+  appendHistory({
+    ts: new Date().toISOString(),
+    channel: evt.isGroup ? 'group' : 'dm',
+    group: evt.isGroup ? evt.chatJid : undefined,
+    author: evt.contactDisplayName,
+    idea,
+    response: result.text,
+  });
   return `analyzed (${result.model})`;
 }
 
@@ -69,5 +78,6 @@ export async function handleInbound(payload: unknown): Promise<string> {
 export async function analyzeIdea(idea: string, author?: string): Promise<string> {
   const s = getSettings();
   const result = await buildProvider(s).analyze({ idea, author });
+  appendHistory({ ts: new Date().toISOString(), channel: 'test', author, idea, response: result.text });
   return result.text;
 }
