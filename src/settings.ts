@@ -22,6 +22,9 @@ export interface Settings {
   groupAllowlist: string[];
   /** Also analyze ideas sent in DMs, not just groups. */
   allowDirect: boolean;
+  /** Analyze the bot's OWN outgoing messages too (when the bot uses your personal
+   * number). Safe: bot replies don't start with the trigger, so no loop. */
+  allowFromMe: boolean;
 }
 
 const SECRET_FIELDS: Array<keyof Settings> = ['openaiApiKey', 'avisaApiKey'];
@@ -36,6 +39,7 @@ const DEFAULTS: Settings = {
   publicBaseUrl: '',
   groupAllowlist: [],
   allowDirect: false,
+  allowFromMe: false,
 };
 
 let cache: Settings | null = null;

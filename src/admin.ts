@@ -204,6 +204,7 @@ export function renderAdmin(saved = false, hook = ''): string {
         <input id="groupAllowlist" type="text" name="groupAllowlist" value="${esc(s.groupAllowlist.join(', '))}" placeholder="120363...@g.us">
       </div>
       <label class="switch"><input type="checkbox" name="allowDirect" ${s.allowDirect ? 'checked' : ''}><span class="track"></span> Responder também em DMs</label>
+      <label class="switch"><input type="checkbox" name="allowFromMe" ${s.allowFromMe ? 'checked' : ''}><span class="track"></span> Analisar minhas próprias mensagens <span class="sub">(ligue se o bot usa seu número pessoal)</span></label>
     </div>
 
     <div class="card tabpanel" data-panel="conn">
@@ -303,6 +304,7 @@ export async function handleSave(req: Request, res: Response): Promise<void> {
     publicBaseUrl: (b.publicBaseUrl || '').trim(),
     groupAllowlist: (b.groupAllowlist || '').split(',').map((x) => x.trim()).filter(Boolean),
     allowDirect: b.allowDirect === 'on',
+    allowFromMe: b.allowFromMe === 'on',
   };
   if (b.openaiApiKey && b.openaiApiKey.trim()) patch.openaiApiKey = b.openaiApiKey.trim();
   if (b.avisaApiKey && b.avisaApiKey.trim()) patch.avisaApiKey = b.avisaApiKey.trim();

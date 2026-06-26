@@ -27,12 +27,13 @@ function alreadyHandled(id: string): boolean {
   return false;
 }
 
-/** Decide whether an inbound message is an idea we should analyze. */
-function shouldAnalyze(evt: NormalizedInbound, s: Settings): boolean {
-  if (evt.isFromMe) return false;
-  if (!evt.isGroup && !s.allowDirect) return false;
-  if (evt.isGroup && s.groupAllowlist.length && !s.groupAllowlist.includes(evt.chatJid)) return false;
-  return env.trigger.test(evt.text);
+/** Returns '' if we should analyze, else a short reason for logging. */
+function skipReason(evt: NormalizedInbound, s: Settings): string {
+  if (evt.isFromMe && !s.allowFromMe) return 'fromMe';
+  if (!evt.isGroup && !s.allowDirect) return 'not-group';
+  if (evt.isGroup && s.groupAllowlist.length && !s.groupAllowlist.includes(evt.chatJid)) return `group-not-allowed (${evt.chatJid})`;
+  if (!env.trigger.test(evt.text)) return 'no-trigger';
+  return '';
 }
 
 function formatReply(author: string | undefined, analysis: string): string {
@@ -48,7 +49,8 @@ export async function handleInbound(payload: unknown): Promise<string> {
   const evt = parseWebhook(payload);
   if (!evt) return 'noise';
   const s = getSettings();
-  if (!shouldAnalyze(evt, s)) return 'skip';
+  const reason = skipReason(evt, s);
+  if (reason) return `skip: ${reason}`;
   if (!isConfigured(s)) return 'not-configured';
   if (alreadyHandled(evt.providerMessageId)) return 'dup';
 
